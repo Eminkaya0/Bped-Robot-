@@ -1,1 +1,70 @@
+# Gömülü Sistemler (Embedded Systems)
+
+## Kısa Tanım
+
 Gömülü sistemler, biped robotun donanım kontrolünü sağlayan mikrodenetleyiciler veya gömülü bilgisayar platformlarıdır. Bu sistemler gerçek zamanlı görevleri yürütür: sensör verilerini okumak, servo motorları sürmek ve diğer bileşenlerle iletişimi sağlamak. Mikrodenetleyici seçimi, işlemci mimarisi, hız, bellek, I/O sayısı ve enerji tüketimi gibi kriterlere dayanarak yapılır. İki ayaklı robotlarda gömülü sistem, robotun denge ve hareket kontrolü için milisaniyeler mertebesinde tutarlı tepki vermelidir.
+
+## Detaylı Açıklama
+
+Biped bir robotun merkezi sinir sistemi sayılabilecek gömülü denetleyici, tüm sensör girdilerini toplar ve motorlara çıkış sinyallerini üretir. Bu denetleyici genellikle bir **mikrodenetleyici (MCU)** ya da gömülü Linux çalıştıran bir **tek kart bilgisayar (SBC)** olabilir. MCU'lar (ör. ARM Cortex-M serisi, AVR tabanlı Arduino gibi) gerçek zamanlı performansları ve düşük gecikmeleri ile öne çıkar. Kritik kontrol döngülerinin zamanında çalışması için çoğu biped robot, MCU'larda **gerçek zamanlı işletim sistemleri (RTOS)** kullanır. Örneğin, STM32 mikrokontrolcü üzerinde **FreeRTOS** veya **Micrium μC/OS** gibi bir RTOS çalıştırmak, çoklu görevlerin zaman hassasiyetini artırabilir. Nitekim STM32 tabanlı bir insansı robot kontrol çalışmasında, μC/OS-II gerçek zamanlı işletim sistemi entegre edilerek sistemin gerçek zamanlı performansının iyileştiği rapor edilmiştir.
+
+Gömülü sistem, sadece tek bir merkezi karttan ibaret olmayabilir; bazı tasarımlarda iş dağılımı yapılarak birden fazla mikrodenetleyici birlikte çalışır. Örneğin, bir projede ana kontrol için Raspberry Pi (Linux ile ROS 2 çalıştıran) kullanılırken, sensör verilerini toplamak için bir Arduino Nano Every mikrodenetleyicisi UART üzerinden ana sisteme bağlanmıştır. Bu tür dağıtık mimaride, yardımcı mikrodenetleyici IMU ve ayak sensörlerini okur, ana karta iletir; ana kart ise yüksek seviyeli kararları alır. 
+
+Gömülü sistem mimarisinin tasarımında, gecikmelerin asgari olması (örneğin IMU verisinin işlenip denge düzeltmesinin hızla yapılması), görevlerin önceliklendirilmesi ve kesintilerin doğru yönetimi kritik önemdedir.
+
+## Kullanılan/Tercih Edilebilecek Teknolojiler
+
+### Mikrodenetleyiciler
+- **STM32, Arduino (ATmega), ESP32, Tiva-C, Raspberry Pi Pico (RP2040)** gibi işlemciler biped robotlarda kullanılır. 
+- Örneğin Robotis Darwin-Mini insansı robotu, 32-bit ARM Cortex-M3 tabanlı OpenCM9.04 mikrodenetleyicisini kullanır. Bu denetleyici, 16 adet akıllı Dynamixel servo motoru kontrol ederek robotun tüm eklem hareketlerini koordine eder.  
+
+### Gerçek Zamanlı İşletim Sistemleri (RTOS)
+- **FreeRTOS, Zephyr, ChibiOS, Micrium μC/OS-III** gibi RTOS'lar, zaman kritik görevleri olan iki ayaklı robotlarda yaygın olarak tercih edilir. 
+- RTOS ile CPU zaman dilimleri görevlere paylaştırılır, böylece örneğin denge kontrol döngüsü belirli aralıklarla kesin olarak çalışır.  
+
+### Ortak Haberleşme Arayüzleri
+- Gömülü sistemler genellikle **I2C, SPI, UART, CAN** gibi protokollerle sensör ve aktüatörlere bağlanır. 
+- Örneğin, IMU sensörü I2C ile MCU'ya veri aktarırken, akıllı servo motorlar TTL serial (yarı çift yönlü UART) üzerinden haberleşebilir.  
+
+### Mikro-ROS
+- ROS 2 ekosisteminde mikrodenetleyicilerin de bir ROS nodu gibi davranmasını sağlayan Micro-ROS projesi, gerçek zamanlı MCU'ları ROS 2 ağına dahil etmek için kullanılabilir. 
+- Bu sayede gömülü sistem, ROS 2 tabanlı yüksek seviye yazılımla entegre şekilde mesajlaşabilir.
+
+## Önerilen Makaleler ve Kaynaklar
+
+- *Design of Humanoid Robot Control System Based on STM32 and μC/OS-II* (2018) – STM32 mikrodenetleyiciye RTOS port edilerek insansı robot kontrolü uygulamasını anlatır.
+- *TI Humanoid Robot Controller Reference* – Texas Instruments'ın insansı robot kontrolcüsü blok diyagramı ve tasarım notları, gömülü kontrol mimarisi için pratik bir bakış sunar.
+- *Robotis OpenCM9.04 Documentation* – Robotis'in Darwin-Mini ve benzeri robotlar için geliştirdiği OpenCM gömülü kartının teknik detayları ve programlama kılavuzu.
+
+## Eğitim Videoları / Uygulama Örnekleri
+
+- [Lapin Biped Robot – Arduino Firmware (GitHub)](https://github.com/tpeyruse/LapinArduino) – İki ayaklı bir robotun sensör ve servo kontrolünü yapan Arduino firmware kodları (UART ile ROS 2'ye bağlanıyor).
+- [Biped Robot Controller on ESP32 (Video)](https://www.youtube.com/watch?v=...) – ESP32 ve FreeRTOS kullanarak bir biped robotun denge kontrolünün gerçek zamanlı gerçekleştirilmesini gösteren uygulamalı video.
+- [Robotis OpenCM Eğitim Serisi](https://www.youtube.com/playlist?list=...) – Robotis'in OpenCM mikrodenetleyicisi ve Dynamixel servo kontrolüne dair videolu eğitim serisi.
+
+## Örnek Kod Parçaları
+
+Aşağıda, bir mikrodenetleyici üzerinde RTOS olmaksızın basit bir döngüyle sensör okuma ve servo kontrol akışı gösterilmektedir (yalın bir örnek olması amacıyla verilmiştir):
+
+```cpp
+// Pseudocode for main loop on microcontroller
+setup() {
+  initIMU();           // IMU sensörünü başlat (I2C)
+  initServos();        // Servo PWM ya da seri haberleşmesini başlat
+  setTimerInterval(5); // 5 ms arayla timer kesmesi ayarla (200 Hz kontrol döngüsü)
+}
+
+loop() {
+  // Sürekli dönen boş döngü, asıl işleri timer interrupt yapacak
+}
+
+// 5 ms'lik zaman kesmesi ISR
+onTimerInterrupt() {
+  SensorData data = readIMU();                 // IMU'dan açısal hız/ivme oku
+  Orientation ori = computeOrientation(data);  // Örn. tamamlayıcı filtre ile açı hesapla
+  adjustBalance(ori);                          // Denge için gerekli servo hedef açılarını hesapla
+  setServoPositions(computedTargets);          // Servo motorları yeni pozisyona sür
+}
+```
+
+Yukarıdaki örnekte `computeOrientation` ve `adjustBalance` fonksiyonları, ilgili algoritmalara göre (örneğin denge PID kontrolü) tanımlanacaktır. Gerçek bir uygulamada bu işlemler bir RTOS görevine bölünerek de yapılabilir. 
